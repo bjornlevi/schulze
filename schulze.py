@@ -1,24 +1,29 @@
+"""
+Schulze STV voting implementation.
+See https://en.wikipedia.org/wiki/Schulze_method
+"""
 
+from collections import defaultdict, OrderedDict
+import random
 
-#input: preference
-    # p[i,j] = number of voters that prefer candidate i to canditate j
-#output: order
-    # o[i,j] = bottleneck number in the strongest path
 
 def voting_results(preference, candidates):
-    #prepare results
-    results = dict()
-    for candidate in candidates:
-        results[candidate] = dict()
+    """
+    input: preference
+        p[i,j] = number of voters that prefer candidate i to candidate j
+    output: ordered results
+        o[i,j] = bottleneck number in the strongest path
+    """
+    strongest_paths = defaultdict(lambda: defaultdict(int))
     
-    #calculate voting rank
+    # Calculate the strongest paths between candidates
     for i in candidates:
         for j in candidates:
             if i != j:
                 if preference[i][j] > preference[j][i]:
-                    results[i][j] = preference[i][j]
+                    strongest_paths[i][j] = preference[i][j]
                 else:
-                    results[i][j] = 0
+                    strongest_paths[i][j] = 0
 
     for i in candidates:
         for j in candidates:
@@ -26,10 +31,36 @@ def voting_results(preference, candidates):
                 for k in candidates:
                     if i != k and j != k:
                         #p[j,k] := max ( p[j,k], min ( p[j,i], p[i,k] ) )
-                        results[j][k] = max(results[j][k], min(results[j][i], results[i][k]))
-    return results
+                        strongest_paths[j][k] = max(strongest_paths[j][k], min(strongest_paths[j][i], strongest_paths[i][k]))
 
-"""
+    # Now we have the strongest paths of each candidate.
+    # We need to determine the ordering among the candidates by comparing their respective path strengths.
+    # For all candidates, compare their path strengths in both directions, the candidate that has stronger path
+    # wins the other candidate. Order them from the candidate that wins all others, to the one that wins none.
+    wins = defaultdict(list)
+    for ci in strongest_paths.iterkeys():
+        for cj in strongest_paths.iterkeys():
+
+            if ci == cj:
+                continue
+
+            if strongest_paths[ci][cj] > strongest_paths[cj][ci]:
+                wins[ci].append(cj)
+
+    # Create ordered results of candidates that actually won other candidates
+    ordered_results = sorted(wins.items(), key=lambda x: len(x[1]), reverse=True)
+
+    # Add any candidates that did not win anything in a random order
+    stragglers = [c for c in candidates if c not in wins]
+    random.shuffle(stragglers)
+    for straggler in stragglers:
+        ordered_results.append((straggler, None))
+
+    return OrderedDict(ordered_results)
+
+
+def rank_votes(votes, candidates):
+    """
     input: votes is a list of preference ordered votes
         vote = [(1,'a'), (2, 'b'), (2, 'd'), (2, 'x'), (100, 'y')]
     input: candidates is a list of candidate voting keys:
@@ -47,32 +78,36 @@ def voting_results(preference, candidates):
                     'y': {'y': 0, 'b': 0, 'c': 1, 'd,' 0, 'x,' 0, 'a': 0}, #c got no vote
                     #'self' is always 0
                 }
-"""
-def rank_votes(votes, candidates):
+    """
     invalid_votes = list()
     #prepare the output - 0 set all candidates
-    preference = dict()
-    for candidate in candidates:
-        preference[candidate] = dict()
-        for opponent in candidates:
-            preference[candidate][opponent] = 0
+    preference = defaultdict(lambda: defaultdict(int))
 
     for vote in votes:
-        vote.sort() #make sure the votes are in order
-        if len(set([x[1] for x in vote])) == len(vote): #check for duplicate choices
-            for i, choice in enumerate(vote):
-                voted_candidates = set([x[1] for x in vote])
-                tied_candidates = [x[1] for x in vote if choice[0] == x[0]] #so that [(1, 'a'), (2, 'c'), (2, 'e'), (3, 'b'), (5, 'd')] 'e' also gets a 'c' increment
-                not_voted_candidates = set(candidates)-set(voted_candidates)
-                #increment against all other candidates
-                candidate = vote[i][1]
-                opponents_to_increment = list(set([x[1] for x in vote[i+1:]] + list(not_voted_candidates) + tied_candidates))
-                increment_candidate(candidate, opponents_to_increment, preference)
-                #print preference
-        else:
-            #duplicate choice, invalid!
+        # make sure the votes are in order
+        vote.sort()
+        voted_candidates = set([x[1] for x in vote])
+
+        # check for duplicate choices
+        if len(voted_candidates) != len(vote):
+            # duplicate choice, invalid!
             invalid_votes.append(vote)
+
+        else:
+            for i, choice in enumerate(vote):
+                # so that [(1, 'a'), (2, 'c'), (2, 'e'), (3, 'b'), (5, 'd')] 'e' also gets a 'c' increment
+                tied_candidates = [x[1] for x in vote if choice[0] == x[0]]
+                not_voted_candidates = set(candidates)-voted_candidates
+                # increment against all other candidates
+                candidate = vote[i][1]
+
+                opponents_to_increment = list(
+                    set([x[1] for x in vote[i+1:]] + list(not_voted_candidates) + tied_candidates))
+
+                increment_candidate(candidate, opponents_to_increment, preference)
+
     return preference
+
 
 def increment_candidate(candidate, opponents, preference_dict):
     for opponent in opponents:
@@ -81,98 +116,3 @@ def increment_candidate(candidate, opponents, preference_dict):
         else:
             preference_dict[candidate][opponent] = 1
 
-candidates = ['a', 'b', 'c', 'd', 'e', 'x']
-votes = [
-        [(1,'a'),(2,'c'),(3,'b'),(4,'e'),(5,'d')],
-        [(1,'a'),(2,'c'),(3,'b'),(4,'e'),(5,'d')],
-        [(1,'a'),(2,'c'),(3,'b'),(4,'e'),(5,'d')],
-        [(1,'a'),(2,'c'),(3,'b'),(4,'e'),(5,'d')],
-        [(1,'a'),(2,'c'),(3,'b'),(4,'e'),(5,'d')], #5
-        [(1,'a'),(2,'d'),(3,'e'),(4,'c'),(5,'b')],
-        [(1,'a'),(2,'d'),(3,'e'),(4,'c'),(5,'b')],
-        [(1,'a'),(2,'d'),(3,'e'),(4,'c'),(5,'b')],
-        [(1,'a'),(2,'d'),(3,'e'),(4,'c'),(5,'b')],
-        [(1,'a'),(2,'d'),(3,'e'),(4,'c'),(5,'b')], #5
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')],
-        [(1,'b'),(2,'e'),(3,'d'),(4,'a'),(5,'c')], #8
-        [(1,'c'),(2,'a'),(3,'b'),(4,'e'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'b'),(4,'e'),(5,'d')], #20
-        [(1,'c'),(2,'a'),(3,'b'),(4,'e'),(5,'d')], #3
-        [(1,'c'),(2,'b'),(3,'a'),(4,'d'),(5,'e')],
-        [(1,'c'),(2,'b'),(3,'a'),(4,'d'),(5,'e')], #2
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')],
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')],
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')],
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')],
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')],
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')],
-        [(1,'d'),(2,'c'),(3,'e'),(4,'b'),(5,'a')], #30
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')],
-        [(1,'c'),(2,'a'),(3,'e'),(4,'b'),(5,'d')], #7
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')],
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')],
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')], #40
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')],
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')],
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')],
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')],
-        [(1,'e'),(2,'b'),(3,'a'),(4,'d'),(5,'c')] #8
-    ]
-
-
-#candidates = ['x','y','z']
-"""
-votes = [
-    [(1, 'x'),(2,'y'),(3,'z')],
-    [(1, 'y'),(2,'z'),(3,'x')],
-    [(1, 'z'),(2,'x'),(3,'y')]
-]
-"""
-print 'number of votes:', len(votes)
-
-#create directed graph
-preference = rank_votes(votes, candidates)
-
-#extract rank numbers
-results = voting_results(preference, candidates)
-
-print results
-"""
-    {'a': 
-        {'x': 45, 'c': 28, 'b': 28, 'e': 24, 'd': 30}, 
-    'c': 
-        {'a': 25, 'x': 45, 'b': 29, 'e': 24, 'd': 29}, 
-    'b': 
-        {'a': 25, 'x': 45, 'c': 28, 'e': 24, 'd': 33}, 
-    'e': 
-        {'a': 25, 'x': 45, 'c': 28, 'b': 28, 'd': 31}, 
-    'd': 
-        {'a': 25, 'x': 45, 'c': 28, 'b': 28, 'e': 24}, 
-    'x': 
-        {'a': 0, 'c': 0, 'b': 0, 'e': 0, 'd': 0}}
-"""
-
-#print preference
-"""{'a': 
-        {'c': 26, 'b': 20, 'e': 22, 'd': 30}, 
-    'c': 
-        {'a': 19, 'b': 29, 'e': 24, 'd': 17}, 
-    'b': 
-        {'a': 25, 'c': 16, 'e': 18, 'd': 33}, 
-    'e': 
-        {'a': 23, 'c': 21, 'b': 27, 'd': 31},
-    'd': 
-        {'a': 15, 'c': 28, 'b': 12, 'e': 14}}
-"""
-#voting_results([])
