@@ -7,11 +7,11 @@ from collections import defaultdict, OrderedDict
 import random
 
 
-def voting_results(preference, candidates):
+def compute_strongest_paths(preference, candidates):
     """
     input: preference
         p[i,j] = number of voters that prefer candidate i to candidate j
-    output: ordered results
+    output:
         o[i,j] = bottleneck number in the strongest path
     """
     strongest_paths = defaultdict(lambda: defaultdict(int))
@@ -33,7 +33,17 @@ def voting_results(preference, candidates):
                         #p[j,k] := max ( p[j,k], min ( p[j,i], p[i,k] ) )
                         strongest_paths[j][k] = max(strongest_paths[j][k], min(strongest_paths[j][i], strongest_paths[i][k]))
 
-    # Now we have the strongest paths of each candidate.
+    return strongest_paths
+
+
+def get_ordered_voting_results(strongest_paths):
+    """
+     strongest_paths: the strongest paths of each candidate.
+     returns:
+        ordered dictionary, ordered by how many wins a candidate had against other candidates
+        key is candidate, value is list of candidates defeated by that candidate.
+     """
+
     # We need to determine the ordering among the candidates by comparing their respective path strengths.
     # For all candidates, compare their path strengths in both directions, the candidate that has stronger path
     # wins the other candidate. Order them from the candidate that wins all others, to the one that wins none.
@@ -51,7 +61,7 @@ def voting_results(preference, candidates):
     ordered_results = sorted(wins.items(), key=lambda x: len(x[1]), reverse=True)
 
     # Add any candidates that did not win anything in a random order
-    stragglers = [c for c in candidates if c not in wins]
+    stragglers = [c for c in strongest_paths.keys() if c not in wins]
     random.shuffle(stragglers)
     for straggler in stragglers:
         ordered_results.append((straggler, None))

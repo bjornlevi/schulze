@@ -60,52 +60,40 @@ def test_6_candidates_45_votes():
     # Create directed graph
     preference = schulze.rank_votes(votes, candidates)
 
-    # Extract rank numbers
-    results = schulze.voting_results(preference, candidates)
+    # Get the strongest paths of each candidate
+    strongest_paths = schulze.compute_strongest_paths(preference, candidates)
 
-    print ", ".join(results.keys())
+    # Get final, ordered, results
+    results = schulze.get_ordered_voting_results(strongest_paths)
+
     assert ", ".join(results.keys()) == "e, a, c, b, d, x"
 
 
-###
-# TODO TESTS
-###
+def test_3_candidates_3_votes_cyclical():
 
-#candidates = ['x','y','z']
-"""
-votes = [
-    [(1, 'x'),(2,'y'),(3,'z')],
-    [(1, 'y'),(2,'z'),(3,'x')],
-    [(1, 'z'),(2,'x'),(3,'y')]
-]
-"""
+    candidates = ['x', 'y', 'z']
+    votes = [
+        [(1, 'x'), (2, 'y'), (3, 'z')],
+        [(1, 'y'), (2, 'z'), (3, 'x')],
+        [(1, 'z'), (2, 'x'), (3, 'y')]
+    ]
 
-"""
-    {'a':
-        {'x': 45, 'c': 28, 'b': 28, 'e': 24, 'd': 30},
-    'c':
-        {'a': 25, 'x': 45, 'b': 29, 'e': 24, 'd': 29},
-    'b':
-        {'a': 25, 'x': 45, 'c': 28, 'e': 24, 'd': 33},
-    'e':
-        {'a': 25, 'x': 45, 'c': 28, 'b': 28, 'd': 31},
-    'd':
-        {'a': 25, 'x': 45, 'c': 28, 'b': 28, 'e': 24},
-    'x':
-        {'a': 0, 'c': 0, 'b': 0, 'e': 0, 'd': 0}}
-"""
+    # Randomize the votes
+    random.shuffle(votes)
 
-#print preference
-"""{'a':
-        {'c': 26, 'b': 20, 'e': 22, 'd': 30},
-    'c':
-        {'a': 19, 'b': 29, 'e': 24, 'd': 17},
-    'b':
-        {'a': 25, 'c': 16, 'e': 18, 'd': 33},
-    'e':
-        {'a': 23, 'c': 21, 'b': 27, 'd': 31},
-    'd':
-        {'a': 15, 'c': 28, 'b': 12, 'e': 14}}
-"""
-#voting_results([])
+    # Create directed graph
+    preference = schulze.rank_votes(votes, candidates)
+
+    # Get the strongest paths of each candidate
+    strongest_paths = schulze.compute_strongest_paths(preference, candidates)
+
+    # Get final, ordered, results
+    results = schulze.get_ordered_voting_results(strongest_paths)
+
+    # We should only get 3 results, even if this is cyclical tied vote.
+    assert len(results) == 3
+
+    # All path strengths should be equal, this is a tied vote!
+    for sp in strongest_paths.itervalues():
+        assert sum(sp.values()) == 4
 
