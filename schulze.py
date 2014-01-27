@@ -105,7 +105,7 @@ def rank_votes(votes, candidates):
 
         else:
             for i, choice in enumerate(vote):
-                # so that [(1, 'a'), (2, 'c'), (2, 'e'), (3, 'b'), (5, 'd')] 'e' also gets a 'c' increment
+                # resolve ties: [(1, 'a'), (2, 'c'), (2, 'e'), (3, 'b'), (5, 'd')] 'e' also gets a 'c' increment
                 tied_candidates = [x[1] for x in vote if choice[0] == x[0]]
                 not_voted_candidates = set(candidates)-voted_candidates
                 # increment against all other candidates
