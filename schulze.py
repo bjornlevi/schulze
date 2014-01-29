@@ -11,8 +11,10 @@ def compute_strongest_paths(preference, candidates):
     """
     input: preference
         p[i,j] = number of voters that prefer candidate i to candidate j
+    input: candidates
+        ['candidate_1_id', 'candidate_2_1_id', ...]
     output:
-        o[i,j] = bottleneck number in the strongest path
+        strongest_paths[i,j] = bottleneck number in the strongest path between i and j
     """
     strongest_paths = defaultdict(lambda: defaultdict(int))
     
